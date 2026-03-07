@@ -186,6 +186,16 @@ Vue.component('board-column', {
         data: Object,
         tasks: Array
     },
+    template: `
+    <section class="workflow-column">
+        <h3 class="column-title">{{ data.label }}</h3>
+        <phase-list
+        :phase-id="config.id"
+        :tasks="tasks"
+        :capacity="config.limit"
+        ></phase-list>
+</section>
+`
 })
 const app = new Vue({
     el: '#workflow-app',
