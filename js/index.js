@@ -181,6 +181,12 @@ Vue.component('phase-list', {
             }
         }
     })
+Vue.component('board-column', {
+    props: {
+        data: Object,
+        tasks: Array
+    },
+})
 const app = new Vue({
     el: '#workflow-app',
     data: {
