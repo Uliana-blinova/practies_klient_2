@@ -1,4 +1,4 @@
-let eventBus = new Vue()
+const eventBus = new Vue()
 Vue.component('task-creator', {
     template: `
         <div class="creator-panel">
@@ -70,16 +70,15 @@ Vue.component('task-creator', {
             ]
         }
     }
-
 })
 
 Vue.component('task-card', {
     props: {
         data: Object,
-        type: Boolean
+        readonly: Boolean
     },
     template: `
-        <article class="task-item" :class="{ loked: type }">
+        <article class="task-item" :class="{ loked: readonly }">
             <header>
                 <h4>{{ data.title }}</h4>
             </header>
@@ -90,7 +89,7 @@ Vue.component('task-card', {
                             type="checkbox" 
                             :checked="step.status"
                             @change="emitChange(index)"
-                            :disabled="step.status || type"
+                            :disabled="step.status || readonly"
                         >
                         <span :class="{ ready: step.status }">{{ step.content }}</span>
                     </label>
@@ -103,7 +102,7 @@ Vue.component('task-card', {
     `,
     methods: {
         emitChange(index) {
-            if (this.type) return
+            if (this.readonly) return
             this.$emit('step-update', {
                 taskId: this.data.id,
                 stepIndex: index
@@ -112,5 +111,87 @@ Vue.component('task-card', {
         formatTime(ts) {
             return new Date(ts).toLocaleString('ru-RU')
         }
+    }
+})
+
+Vue.component('phase-list', {
+        props: {
+            phaseId: Number,
+            tasks: Array
+        },
+        template: `
+        <div class="task-stack">
+            <task-card 
+                v-for="task in currentTasks" 
+                :key="task.id"
+                :data="task"
+                :readonly="lockState"
+                @step-update="processCheck"
+            ></task-card>
+        </div>
+    `,
+        computed: {
+            currentTasks() {
+                return this.tasks.filter(t => t.phase === this.phaseId)
+            },
+            lockState() {
+                if (this.phaseId !== 1) return false
+
+                const phase2Count = this.tasks.filter(t => t.phase === 2).length
+                if (phase2Count >= 5) {
+                    for (let task of this.currentTasks) {
+                        if (this.calcPercent(task) > 50) return true
+                    }
+                }
+                return false
+            }
+        },
+        methods: {
+            calcPercent(task) {
+                if (!task.steps.length) return 0
+                const active = task.steps.filter(s => s.status).length
+                return Math.round((active / task.steps.length) * 100)
+            },
+            processCheck(payload) {
+                const target = this.tasks.find(t => t.id === payload.taskId)
+                if (!target) return
+
+                target.steps[payload.stepIndex].status = !target.steps[payload.stepIndex].status
+                this.evaluateFlow(target)
+                this.persist()
+            },
+            evaluateFlow(task) {
+                const percent = this.calcPercent(task)
+
+                if (task.phase === 1 && percent >= 50) {
+                    const phase2Count = this.tasks.filter(t => t.phase === 2).length
+                    if (phase2Count < 5) {
+                        task.phase = 2
+                        this.persist()
+                    }
+                } else if (task.phase === 2 && percent === 100) {
+                    task.phase = 3
+                    if (!task.meta) task.meta = {}
+                    task.meta.completed = Date.now()
+                    this.persist()
+                }
+            },
+            persist() {
+                eventBus.$emit('tasks:save')
+            }
+        }
+    })
+const app = new Vue({
+    el: '#workflow-app',
+    data: {
+        phases: [
+            { id: 1, label: 'Новые', limit: 3 },
+            { id: 2, label: 'В процессе', limit: 5 },
+            { id: 3, label: 'Готовые', limit: null }
+        ],
+        taskList: []
+    },
+    mounted() {
+        console.log('приложение работает')
     }
 })
