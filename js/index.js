@@ -1,4 +1,5 @@
 const eventBus = new Vue()
+
 Vue.component('task-creator', {
     template: `
         <div class="creator-panel">
@@ -115,11 +116,12 @@ Vue.component('task-card', {
 })
 
 Vue.component('phase-list', {
-        props: {
-            phaseId: Number,
-            tasks: Array
-        },
-        template: `
+    props: {
+        phaseId: Number,
+        tasks: Array,
+        capacity: Number
+    },
+    template: `
         <div class="task-stack">
             <task-card 
                 v-for="task in currentTasks" 
@@ -130,57 +132,58 @@ Vue.component('phase-list', {
             ></task-card>
         </div>
     `,
-        computed: {
-            currentTasks() {
-                return this.tasks.filter(t => t.phase === this.phaseId)
-            },
-            lockState() {
-                if (this.phaseId !== 1) return false
-
-                const phase2Count = this.tasks.filter(t => t.phase === 2).length
-                if (phase2Count >= 5) {
-                    for (let task of this.currentTasks) {
-                        if (this.calcPercent(task) > 50) return true
-                    }
-                }
-                return false
-            }
+    computed: {
+        currentTasks() {
+            return this.tasks.filter(t => t.phase === this.phaseId)
         },
-        methods: {
-            calcPercent(task) {
-                if (!task.steps.length) return 0
-                const active = task.steps.filter(s => s.status).length
-                return Math.round((active / task.steps.length) * 100)
-            },
-            processCheck(payload) {
-                const target = this.tasks.find(t => t.id === payload.taskId)
-                if (!target) return
+        lockState() {
+            if (this.phaseId !== 1) return false
 
-                target.steps[payload.stepIndex].status = !target.steps[payload.stepIndex].status
-                this.evaluateFlow(target)
-                this.persist()
-            },
-            evaluateFlow(task) {
-                const percent = this.calcPercent(task)
+            const phase2Count = this.tasks.filter(t => t.phase === 2).length
+            if (phase2Count >= 5) {
+                for (let task of this.currentTasks) {
+                    if (this.calcPercent(task) > 50) return true
+                }
+            }
+            return false
+        }
+    },
+    methods: {
+        calcPercent(task) {
+            if (!task.steps.length) return 0
+            const active = task.steps.filter(s => s.status).length
+            return Math.round((active / task.steps.length) * 100)
+        },
+        processCheck(payload) {
+            const target = this.tasks.find(t => t.id === payload.taskId)
+            if (!target) return
 
-                if (task.phase === 1 && percent >= 50) {
-                    const phase2Count = this.tasks.filter(t => t.phase === 2).length
-                    if (phase2Count < 5) {
-                        task.phase = 2
-                        this.persist()
-                    }
-                } else if (task.phase === 2 && percent === 100) {
-                    task.phase = 3
-                    if (!task.meta) task.meta = {}
-                    task.meta.completed = Date.now()
+            target.steps[payload.stepIndex].status = !target.steps[payload.stepIndex].status
+            this.evaluateFlow(target)
+            this.persist()
+        },
+        evaluateFlow(task) {
+            const percent = this.calcPercent(task)
+
+            if (task.phase === 1 && percent >= 50) {
+                const phase2Count = this.tasks.filter(t => t.phase === 2).length
+                if (phase2Count < 5) {
+                    task.phase = 2
                     this.persist()
                 }
-            },
-            persist() {
-                eventBus.$emit('tasks:save')
+            } else if (task.phase === 2 && percent === 100) {
+                task.phase = 3
+                if (!task.meta) task.meta = {}
+                task.meta.completed = Date.now()
+                this.persist()
             }
+        },
+        persist() {
+            eventBus.$emit('tasks:save')
         }
-    })
+    }
+})
+
 Vue.component('board-column', {
     props: {
         data: Object,
@@ -190,13 +193,14 @@ Vue.component('board-column', {
     <section class="workflow-column">
         <h3 class="column-title">{{ data.label }}</h3>
         <phase-list
-        :phase-id="config.id"
+        :phase-id="data.id"
         :tasks="tasks"
-        :capacity="config.limit"
+        :capacity="data.limit"
         ></phase-list>
-</section>
-`
+    </section>
+    `
 })
+
 const app = new Vue({
     el: '#workflow-app',
     data: {
@@ -207,7 +211,39 @@ const app = new Vue({
         ],
         taskList: []
     },
+    methods: {
+        saveTasks() {
+            localStorage.setItem('workflow_tasks', JSON.stringify(this.taskList))
+        },
+        loadTasks() {
+            const saved = localStorage.getItem('workflow_tasks')
+            if (saved) {
+                try {
+                    this.taskList = JSON.parse(saved)
+                } catch (e) {
+                    console.error('Ошибка загрузки:', e)
+                }
+            }
+        }
+    },
     mounted() {
+        this.loadTasks()
+        eventBus.$on('task:created', (payload) => {
+            const newTask = {
+                id: Date.now(),
+                title: payload.title,
+                steps: payload.steps,
+                phase: 1,
+                meta: payload.meta
+            }
+            this.taskList.push(newTask)
+            this.saveTasks()
+        })
+
+        eventBus.$on('tasks:save', () => {
+            this.saveTasks()
+        })
+
         console.log('приложение работает')
     }
 })
