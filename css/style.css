@@ -143,4 +143,20 @@ button {
     padding: 10px 5px;
     scroll-behavior: smooth;
 }
+.workflow-column {
+    background: #979caa;
+    border: 2px solid #3b507d;
+    border-radius: 12px;
+    padding: 20px;
+    width: 320px;
+    min-height: 500px;
+}
+
+.column-title {
+    text-align: center;
+    color: #3b507d;
+    margin-top: 0;
+    border-bottom: 1px solid #3b507d;
+    padding-bottom: 10px;
+}
 

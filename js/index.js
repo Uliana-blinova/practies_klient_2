@@ -228,6 +228,11 @@ const app = new Vue({
     },
     mounted() {
         this.loadTasks()
+        const phase1Count = this.taskList.filter(t => t.phase === 1).length
+        if (phase1Count >= 3) {
+            alert('Первая колонка переполнена (максимум 3 задачи)')
+            return
+        }
         eventBus.$on('task:created', (payload) => {
             const newTask = {
                 id: Date.now(),
