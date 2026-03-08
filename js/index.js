@@ -227,13 +227,14 @@ const app = new Vue({
         }
     },
     mounted() {
-        this.loadTasks()
-        const phase1Count = this.taskList.filter(t => t.phase === 1).length
-        if (phase1Count >= 3) {
-            alert('Первая колонка переполнена (максимум 3 задачи)')
-            return
-        }
+        localStorage.removeItem('workflow_tasks')
+        this.taskList = []
         eventBus.$on('task:created', (payload) => {
+            const phase1Count = this.taskList.filter(t => t.phase === 1).length
+            if (phase1Count >= 3) {
+                alert('Первая колонка переполнена (максимум 3 задачи)')
+                return
+            }
             const newTask = {
                 id: Date.now(),
                 title: payload.title,
@@ -244,7 +245,6 @@ const app = new Vue({
             this.taskList.push(newTask)
             this.saveTasks()
         })
-
         eventBus.$on('tasks:save', () => {
             this.saveTasks()
         })

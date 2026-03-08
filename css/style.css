@@ -100,7 +100,7 @@ button {
     background: #ffffff;
     border-left: 6px solid #3b507d;
     padding: 15px;
-    margin-bottom: 15px;
+    margin: 20px 15px;
     border-radius: 8px;
 }
 
@@ -142,6 +142,7 @@ button {
     overflow-x: auto;
     padding: 10px 5px;
     scroll-behavior: smooth;
+    justify-content: center;
 }
 .workflow-column {
     background: #979caa;
@@ -155,8 +156,5 @@ button {
 .column-title {
     text-align: center;
     color: #3b507d;
-    margin-top: 0;
-    border-bottom: 1px solid #3b507d;
-    padding-bottom: 10px;
 }
 
