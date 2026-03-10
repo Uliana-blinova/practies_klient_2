@@ -10,18 +10,7 @@
 </head>
 <body>
 <div id="workflow-app">
-    <header class="app-header">
-        <h1>Заметки</h1>
-    </header>
-    <task-creator></task-creator>
-    <div class="kanban-board">
-        <board-column
-                v-for="column in phases"
-                :key="column.id"
-                :data="column"
-                :tasks="taskList">
-        </board-column>
-    </div>
+    <app></app>
 </div>
 </body>
 </html>

@@ -1,14 +1,16 @@
-*{
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
+
 body {
     background: #eeebda;
     margin: 0;
     padding: 20px;
 }
-h1{
+
+h1 {
     color: #282b4a;
     text-align: center;
     margin-bottom: 30px;
@@ -34,7 +36,10 @@ h1{
     color: #3b507d;
 }
 
-input[type="text"] {
+input[type="text"],
+.step-controls > input,
+.input-block input[type="text"],
+.substep-input {
     width: 100%;
     padding: 10px;
     border: 1px solid #3b507d;
@@ -42,6 +47,21 @@ input[type="text"] {
     box-sizing: border-box;
     font-size: 14px;
 }
+
+.step-controls > input {
+    flex-grow: 1;
+}
+
+.title-controls {
+    max-width: 400px;
+}
+
+.btn-placeholder {
+    width: 44px;
+    height: 40px;
+    visibility: hidden;
+}
+
 .steps-container {
     margin-bottom: 20px;
 }
@@ -66,15 +86,12 @@ input[type="text"] {
     flex-grow: 1;
 }
 
-.step-controls > input {
-    flex-grow: 1;
-}
-
 button {
     padding: 10px 20px;
     border: none;
     border-radius: 6px;
     font-weight: 600;
+    cursor: pointer;
 }
 
 .btn-secondary {
@@ -96,6 +113,65 @@ button {
     padding: 10px 14px;
     font-size: 18px;
 }
+
+.icon-btn.remove-sub {
+    padding: 6px 10px;
+    background: #e74c3c;
+    font-size: 1rem;
+}
+
+.icon-btn.remove-sub:hover {
+    background: #c0392b;
+}
+
+.substeps-container {
+    margin-top: 10px;
+    border-top: 1px dashed #c5c9d6;
+    padding-top: 10px;
+}
+
+.btn-substeps-toggle {
+    width: 100%;
+    padding: 8px 12px;
+    background: #e8ecf5;
+    border: 1px solid #3b507d;
+    border-radius: 6px;
+    color: #3b507d;
+    font-weight: 600;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+}
+
+.btn-substeps-toggle:hover {
+    background: #3b507d;
+    color: #fff;
+}
+
+.substeps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.substep-entry {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-add-substep {
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px dashed #3b507d;
+    border-radius: 6px;
+    color: #3b507d;
+}
+
+.btn-add-substep:hover {
+    background: #3b507d;
+    color: #fff;
+}
+
 .task-item {
     background: #ffffff;
     border-left: 6px solid #3b507d;
@@ -122,10 +198,10 @@ button {
 .checkbox-label {
     display: flex;
     align-items: center;
+    gap: 12px;
 }
 
 .checkbox-label input {
-    margin-right: 12px;
     width: 18px;
     height: 18px;
     color: #3b507d;
@@ -136,6 +212,30 @@ button {
     color: #888;
 }
 
+.btn-accordion {
+    background: none;
+    border: none;
+    padding: 0 8px;
+    font-size: 14px;
+    color: #3b507d;
+}
+
+.substeps-list-display {
+    list-style: none;
+    padding-left: 30px;
+    margin: 5px 0;
+}
+
+.substep-item {
+    margin: 4px 0;
+}
+
+.no-substeps {
+    color: #8892a5;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
 .kanban-board {
     display: flex;
     gap: 20px;
@@ -144,6 +244,7 @@ button {
     scroll-behavior: smooth;
     justify-content: center;
 }
+
 .workflow-column {
     background: #979caa;
     border: 2px solid #3b507d;
@@ -157,4 +258,11 @@ button {
     text-align: center;
     color: #3b507d;
 }
+
+.task-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 

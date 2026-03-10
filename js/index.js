@@ -1,4 +1,4 @@
-const eventBus = new Vue()
+let eventBus = new Vue()
 
 Vue.component('task-creator', {
     template: `
@@ -6,7 +6,9 @@ Vue.component('task-creator', {
             <form @submit.prevent="handleCreate">
                 <div class="input-block">
                     <label>Название задачи</label>
-                    <input v-model="form.title" placeholder="Введите заголовок" required>
+                    <div class="step-controls title-controls">
+                        <input v-model="form.title" placeholder="Введите заголовок" required>
+                    </div>
                 </div>
                 
                 <div class="steps-container">
@@ -16,9 +18,10 @@ Vue.component('task-creator', {
                             <input v-model="step.content" placeholder="Описание действия" required>
                             <button 
                                 type="button" 
-                                v-if="index >= 2" 
+                                v-if="index >= 3" 
                                 @click="removeStep(index)"
                                 class="icon-btn remove">−</button>
+                            <div v-else class="btn-placeholder"></div>
                         </div>
                     </div>
                 </div>
@@ -51,18 +54,40 @@ Vue.component('task-creator', {
             }
         },
         removeStep(index) {
-            if (index >= 2) {
+            if (index >= 3 && this.form.steps.length > 3) {
                 this.form.steps.splice(index, 1)
             }
         },
         handleCreate() {
+            if (!this.form.title.trim()) {
+                alert('Заполните заголовок')
+                return
+            }
+
+            let allFilled = true
+            for (let step of this.form.steps) {
+                if (!step.content.trim()) {
+                    allFilled = false
+                    break
+                }
+            }
+
+            if (!allFilled) {
+                alert('Заполните все действия')
+                return
+            }
+
             const payload = {
                 title: this.form.title,
-                steps: this.form.steps.map(s => ({ content: s.content, status: false })),
+                steps: this.form.steps.map(step => ({
+                    content: step.content,
+                    status: false
+                })),
                 meta: { created: Date.now() }
             }
 
             eventBus.$emit('task:created', payload)
+
             this.form.title = ''
             this.form.steps = [
                 { content: '', status: false },
@@ -71,7 +96,7 @@ Vue.component('task-creator', {
             ]
         }
     }
-})
+});
 
 Vue.component('task-card', {
     props: {
@@ -84,7 +109,7 @@ Vue.component('task-card', {
                 <h4>{{ data.title }}</h4>
             </header>
             <ul class="task-steps">
-                <li v-for="(step, index) in data.steps" :key="index">
+                <li v-for="(step, index) in stepsList" :key="index">
                     <label class="checkbox-label">
                         <input 
                             type="checkbox" 
@@ -97,10 +122,15 @@ Vue.component('task-card', {
                 </li>
             </ul>
             <footer v-if="data.meta && data.meta.completed">
-                <time>Завершено: {{ formatTime(data.meta.completed) }}</time>
+                <p>Завершено: {{ formatTime(data.meta.completed) }}</p>
             </footer>
         </article>
     `,
+    computed: {
+        stepsList() {
+            return this.data.steps
+        }
+    },
     methods: {
         emitChange(index) {
             if (this.readonly) return
@@ -138,7 +168,6 @@ Vue.component('phase-list', {
         },
         lockState() {
             if (this.phaseId !== 1) return false
-
             const phase2Count = this.tasks.filter(t => t.phase === 2).length
             if (phase2Count >= 5) {
                 for (let task of this.currentTasks) {
@@ -150,15 +179,20 @@ Vue.component('phase-list', {
     },
     methods: {
         calcPercent(task) {
-            if (!task.steps.length) return 0
-            const active = task.steps.filter(s => s.status).length
-            return Math.round((active / task.steps.length) * 100)
+            const list = task.steps
+            if (!list.length) return 0
+            const completed = list.filter(s => s.status).length
+            return Math.round((completed / list.length) * 100)
         },
         processCheck(payload) {
             const target = this.tasks.find(t => t.id === payload.taskId)
             if (!target) return
 
-            target.steps[payload.stepIndex].status = !target.steps[payload.stepIndex].status
+            const list = target.steps
+            if (list && list[payload.stepIndex]) {
+                list[payload.stepIndex].status = !list[payload.stepIndex].status
+            }
+
             this.evaluateFlow(target)
             this.persist()
         },
@@ -183,7 +217,6 @@ Vue.component('phase-list', {
         }
     }
 })
-
 Vue.component('board-column', {
     props: {
         data: Object,
@@ -201,34 +234,63 @@ Vue.component('board-column', {
     `
 })
 
-const app = new Vue({
-    el: '#workflow-app',
-    data: {
-        phases: [
-            { id: 1, label: 'Новые', limit: 3 },
-            { id: 2, label: 'В процессе', limit: 5 },
-            { id: 3, label: 'Готовые', limit: null }
-        ],
-        taskList: []
+Vue.component('app', {
+    template: `
+        <div>
+            <header class="app-header">
+                <h1>Заметки</h1>
+            </header>
+            <task-creator></task-creator>
+            <div class="kanban-board">
+                <board-column 
+                    v-for="phase in phases" 
+                    :key="phase.id"
+                    :data="phase"
+                    :tasks="taskList">
+                </board-column>
+            </div>
+        </div>
+    `,
+    data() {
+        return {
+            phases: [
+                { id: 1, label: 'Новые', limit: 3 },
+                { id: 2, label: 'В процессе', limit: 5 },
+                { id: 3, label: 'Готовые', limit: null }
+            ],
+            taskList: []
+        }
     },
     methods: {
         saveTasks() {
-            localStorage.setItem('workflow_tasks', JSON.stringify(this.taskList))
+            try {
+                localStorage.setItem('workflow_tasks', JSON.stringify(this.taskList))
+            } catch (e) {
+                console.error('Ошибка сохранения:', e)
+            }
         },
         loadTasks() {
-            const saved = localStorage.getItem('workflow_tasks')
-            if (saved) {
-                try {
-                    this.taskList = JSON.parse(saved)
-                } catch (e) {
-                    console.error('Ошибка загрузки:', e)
+            try {
+                const saved = localStorage.getItem('workflow_tasks')
+                if (saved) {
+                    const parsed = JSON.parse(saved)
+                    if (Array.isArray(parsed)) {
+                        this.taskList = parsed
+                    }
                 }
+            } catch (e) {
+                console.error('Ошибка загрузки:', e)
+                this.taskList = []
             }
+        },
+        clearTasks() {
+            localStorage.removeItem('workflow_tasks')
+            this.taskList = []
         }
     },
     mounted() {
-        localStorage.removeItem('workflow_tasks')
-        this.taskList = []
+        this.loadTasks()
+
         eventBus.$on('task:created', (payload) => {
             const phase1Count = this.taskList.filter(t => t.phase === 1).length
             if (phase1Count >= 3) {
@@ -245,10 +307,14 @@ const app = new Vue({
             this.taskList.push(newTask)
             this.saveTasks()
         })
+
         eventBus.$on('tasks:save', () => {
             this.saveTasks()
         })
 
-        console.log('приложение работает')
     }
+})
+
+const app = new Vue({
+    el: '#workflow-app',
 })
