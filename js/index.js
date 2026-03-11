@@ -1,6 +1,4 @@
-
 let eventBus = new Vue()
-
 Vue.component('task-creator', {
     template: `
         <div class="creator-panel">
@@ -74,7 +72,9 @@ Vue.component('task-creator', {
             }
         },
         addSubStep(stepIndex) {
-            this.form.steps[stepIndex].subSteps.push({ content: '', status: false })
+            if (this.form.steps[stepIndex].subSteps.length < 7) {
+                this.form.steps[stepIndex].subSteps.push({ content: '', status: false })
+            }
         },
         removeSubStep(stepIndex, subIndex) {
             this.form.steps[stepIndex].subSteps.splice(subIndex, 1)
@@ -85,32 +85,24 @@ Vue.component('task-creator', {
                 return
             }
 
-            let allFilled = true
-            for (let step of this.form.steps) {
-                if (!step.content.trim()) {
-                    allFilled = false
-                    break
-                }
-                for (let sub of step.subSteps) {
-                    if (!sub.content.trim()) {
-                        allFilled = false
-                        break
-                    }
-                }
-            }
+            const validSteps = this.form.steps
+                .filter(step => step.content.trim())
+                .map(step => ({
+                    content: step.content.trim(),
+                    status: false,
+                    subSteps: step.subSteps
+                        .filter(sub => sub.content.trim())
+                        .map(sub => ({ content: sub.content.trim(), status: false }))
+                }))
 
-            if (!allFilled) {
-                alert('Заполните все действия и подпункты')
+            if (validSteps.length < 3 || validSteps.length > 5) {
+                alert('Должно быть от 3 до 5 пунктов')
                 return
             }
 
             const payload = {
-                title: this.form.title,
-                steps: this.form.steps.map(step => ({
-                    content: step.content,
-                    status: false,
-                    subSteps: step.subSteps.map(sub => ({ content: sub.content, status: false }))
-                })),
+                title: this.form.title.trim(),
+                steps: validSteps,
                 meta: { created: Date.now() }
             }
 
@@ -125,7 +117,6 @@ Vue.component('task-creator', {
         }
     }
 });
-
 Vue.component('task-card', {
     props: {
         data: Object,
@@ -137,28 +128,28 @@ Vue.component('task-card', {
         }
     },
     template: `
-        <article class="task-item" :class="{ loked: readonly }">
+        <article class="task-item" :class="{ locked: readonly }">
             <header>
                 <h4>{{ data.title }}</h4>
             </header>
             <ul class="task-steps">
-                <li v-for="(step, index) in stepsList" :key="index">
-        
+                <li v-for="(step, index) in data.steps" :key="index">
                     <div class="step-header">
                         <label class="checkbox-label" style="flex:1">
                             <input 
                                 type="checkbox" 
-                                :checked="step.status"
+                                :checked="isStepCompleted(step)"
                                 @change="handleParentCheck(index)"
-                                :disabled="isParentDisabled(step) || readonly"
+                                :disabled="readonly || !canToggleParent(step)"
                             >
-                            <span :class="{ ready: step.status }">{{ step.content }}</span>
+                            <span :class="{ ready: isStepCompleted(step) }">{{ step.content }}</span>
                         </label>
                   
                         <button 
                             v-if="step.subSteps && step.subSteps.length > 0"
                             class="accordion-toggle" 
-                            @click="toggleAccordion(index)">
+                            @click="toggleAccordion(index)"
+                            type="button">
                             {{ openAccordion[index] ? '▲' : '▼' }}
                         </button>
                     </div>
@@ -181,63 +172,56 @@ Vue.component('task-card', {
             </footer>
         </article>
     `,
-    computed: {
-        stepsList() {
-            return this.data.steps
-        }
-    },
     methods: {
         toggleAccordion(index) {
             this.$set(this.openAccordion, index, !this.openAccordion[index])
         },
 
-        isParentDisabled(step) {
+        isStepCompleted(step) {
             if (!step.subSteps || step.subSteps.length === 0) {
-                return false
+                return step.status
             }
-            if (step.status) {
-                return false
+            return step.subSteps.every(sub => sub.status)
+        },
+
+        canToggleParent(step) {
+            if (!step.subSteps || step.subSteps.length === 0) {
+                return true
             }
-            for (let i = 0; i < step.subSteps.length; i++) {
-                if (!step.subSteps[i].status) {
-                    return true
-                }
-            }
-            return false
+            return step.subSteps.every(sub => sub.status)
         },
 
         handleParentCheck(index) {
+            if (this.readonly) return
+
             const step = this.data.steps[index]
+            if (step.subSteps && step.subSteps.length > 0) {
+                const incomplete = step.subSteps.filter(sub => !sub.status).length
+                if (incomplete > 0) {
+                    alert(`Сначала выполните все ${incomplete} подпункт(а/ов)`)
+                    return
+                }
+            }
+            if (!step.subSteps || step.subSteps.length === 0) {
+                step.status = !step.status
+            }
 
             this.emitChange(index)
+            this.persist()
         },
 
         handleSubCheck(stepIndex, subIndex) {
+            if (this.readonly) return
+
             const step = this.data.steps[stepIndex]
             const sub = step.subSteps[subIndex]
 
             sub.status = !sub.status
-
-            let allSubsDone = true
-            for (let i = 0; i < step.subSteps.length; i++) {
-                if (!step.subSteps[i].status) {
-                    allSubsDone = false
-                    break
-                }
+            if (step.subSteps && step.subSteps.length > 0) {
+                step.status = step.subSteps.every(s => s.status)
             }
 
-            if (allSubsDone) {
-                if (!step.status) {
-                    step.status = true
-                    this.emitChange(stepIndex)
-                }
-            } else {
-                if (step.status) {
-                    step.status = false
-                    this.emitChange(stepIndex)
-                }
-            }
-
+            this.emitChange(stepIndex)
             this.persist()
         },
 
@@ -256,7 +240,6 @@ Vue.component('task-card', {
         }
     }
 })
-
 Vue.component('phase-list', {
     props: {
         phaseId: Number,
@@ -282,46 +265,68 @@ Vue.component('phase-list', {
     methods: {
         lockState(task) {
             if (this.phaseId !== 1) return false
+
             const phase2Count = this.tasks.filter(t => t.phase === 2).length
             if (phase2Count >= 5) {
-                if (this.calcPercent(task) > 50) return true
+                const phase1Tasks = this.tasks.filter(t => t.phase === 1)
+                const hasOverHalf = phase1Tasks.some(t => this.calcPercent(t) > 50)
+                if (hasOverHalf) {
+                    return true // 🔒 Блокируем ВСЕ карточки первого столбца
+                }
             }
             return false
         },
         calcPercent(task) {
-            const list = task.steps
-            if (!list.length) return 0
-            const completed = list.filter(s => s.status).length
-            return Math.round((completed / list.length) * 100)
+            const steps = task.steps
+            if (!steps || steps.length === 0) return 0
+
+            const totalSteps = steps.length
+            let completedSteps = 0
+
+            steps.forEach(step => {
+                if (!step.subSteps || step.subSteps.length === 0) {
+                    if (step.status) completedSteps++
+                } else {
+                    if (step.subSteps.every(sub => sub.status)) {
+                        completedSteps++
+                    }
+                }
+            })
+
+            return Math.round((completedSteps / totalSteps) * 100)
         },
+
         processCheck(payload) {
             const target = this.tasks.find(t => t.id === payload.taskId)
             if (!target) return
-
             this.evaluateFlow(target)
-            this.persist()
         },
+
         evaluateFlow(task) {
             const percent = this.calcPercent(task)
-
-            if (task.phase === 1 && percent >= 50) {
+            if (percent >= 100 && task.phase !== 3) {
+                task.phase = 3
+                if (!task.meta) task.meta = {}
+                task.meta.completed = Date.now()
+                this.persist()
+                return
+            }
+            if (task.phase === 1 && percent > 50) {
                 const phase2Count = this.tasks.filter(t => t.phase === 2).length
                 if (phase2Count < 5) {
                     task.phase = 2
                     this.persist()
                 }
-            } else if (task.phase === 2 && percent === 100) {
-                task.phase = 3
-                if (!task.meta) task.meta = {}
-                task.meta.completed = Date.now()
-                this.persist()
+
             }
         },
+
         persist() {
             eventBus.$emit('tasks:save')
         }
     }
 })
+
 
 Vue.component('board-column', {
     props: {
@@ -332,13 +337,14 @@ Vue.component('board-column', {
     <section class="workflow-column">
         <h3 class="column-title">{{ data.label }}</h3>
         <phase-list
-        :phase-id="data.id"
-        :tasks="tasks"
-        :capacity="data.limit"
+            :phase-id="data.id"
+            :tasks="tasks"
+            :capacity="data.limit"
         ></phase-list>
     </section>
     `
 })
+
 
 Vue.component('app', {
     template: `
@@ -405,10 +411,6 @@ Vue.component('app', {
                 console.error('Ошибка загрузки:', e)
                 this.taskList = []
             }
-        },
-        clearTasks() {
-            localStorage.removeItem('workflow_tasks')
-            this.taskList = []
         }
     },
     mounted() {
@@ -434,7 +436,6 @@ Vue.component('app', {
         eventBus.$on('tasks:save', () => {
             this.saveTasks()
         })
-
     }
 })
 
